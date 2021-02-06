@@ -131,19 +131,6 @@ function execute_scripts {
     log debug 'Finished scripts processing'
 }
 
-function vmware_context {
-    if type vmtoolsd >/dev/null 2>&1; then
-        if vmtoolsd --cmd 'info-get guestinfo.opennebula.context' >/dev/null 2>&1 ; then
-            return 0
-        else
-            log debug "VMware ONE context not found"
-        fi
-    fi
-
-    log debug "Command vmtoolsd not found"
-    return 1
-}
-
 function get_new_context {
     if [[ "$distro" == "Linux" ]]; then
         # on C6, "blkid" without -l doesn't return anything
@@ -183,27 +170,6 @@ function get_new_context {
         mount_dir
         cp /context/* "${MOUNT_DIR}"
         context_sh "${MOUNT_DIR}"
-
-
-
-    elif vmware_context ; then
-        log debug "Reading context via vmtoolsd"
-        vmtoolsd --cmd 'info-get guestinfo.opennebula.context' | \
-            base64 -d > ${CONTEXT_NEW}
-
-        mount_dir
-        file_id=0
-        while : ; do
-            name=$(vmtoolsd --cmd "info-get guestinfo.opennebula.file.$file_id" | head -n 1)
-            if [ -z "${name}" ]; then
-                break
-            else
-                vmtoolsd --cmd "info-get guestinfo.opennebula.file.$file_id" |\
-                    tail -n+2 |\
-                    base64 -d > ${MOUNT_DIR}/${name}
-            fi
-            file_id=$((file_id+1))
-        done
 
     elif curl -sf -m 30 -o ${CONTEXT_NEW} http://169.254.169.254/latest/user-data; then
         log debug "Reading EC2 user-data"
